@@ -2,7 +2,7 @@ name: Sample Workflow
 on:
   push: # enabling push event on master branch to fire the workflow
     branches:
-      - master
+      - main
 jobs:
   job1:
     runs-on: ubuntu-latest
