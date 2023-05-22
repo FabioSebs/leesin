@@ -1,4 +1,5 @@
 run-name: Sample Workflow
+
 on:
   push: # enabling push event on master branch to fire the workflow
     branches:
@@ -21,12 +22,12 @@ jobs:
         run: |
           pwd
           ls -alR
-          job3:
-            runs-on: ubuntu-latest
-            steps:
-              - name: print env variables
-                run: echo $VAR1 $VAR2 $VAR3
-                env:
-                  VAR1: Thank you
-                  VAR2: very much.
-                  VAR3: Enjoy !!!
+  job3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: print env variables
+        run: echo $VAR1 $VAR2 $VAR3
+        env:
+          VAR1: Thank you
+          VAR2: very much.
+          VAR3: Enjoy !!!
