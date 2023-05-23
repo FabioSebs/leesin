@@ -21,8 +21,8 @@ var (
 
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
-	GetReviewsConcurrently(*colly.Collector)
-	GetReviewsSynchronously(*colly.Collector)
+	GetReviewsConcurrently(*colly.Collector) time.Duration
+	GetReviewsSynchronously(*colly.Collector) time.Duration
 }
 
 type GoCollyProgram struct {
@@ -68,7 +68,7 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	return g.Collector
 }
 
-func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) {
+func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) time.Duration {
 	//empty slice
 	defer emptyReviews(&reviews)
 	start := time.Now()
@@ -93,11 +93,11 @@ func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) {
 	}
 	wg.Wait()
 	utils.PrettyPrintStruct(reviews)
-	fmt.Printf("time: %s", time.Since(start))
 	writeJSON(reviews)
+	return time.Since(start)
 }
 
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) {
+func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) time.Duration {
 	//empty slice
 	defer emptyReviews(&reviews)
 	start := time.Now()
@@ -119,9 +119,8 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) {
 	}
 
 	utils.PrettyPrintStruct(reviews)
-	fmt.Printf("time: %s", time.Since(start))
 	writeJSON(reviews)
-
+	return time.Since(start)
 }
 
 func writeJSON(data []Review) {
