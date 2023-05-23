@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
@@ -13,8 +15,14 @@ import (
 	"github.com/gocolly/colly"
 )
 
+var (
+	reviews = make([]Review, 0)
+)
+
 type WebScraper interface {
-	GetReviews()
+	CollectorSetup() *colly.Collector
+	GetReviewsConcurrently(*colly.Collector)
+	GetReviewsSynchronously(*colly.Collector)
 }
 
 type GoCollyProgram struct {
@@ -35,10 +43,7 @@ func NewWebScraper() WebScraper {
 	}
 }
 
-func (g *GoCollyProgram) GetReviews() {
-	// Parsing Data to Model from URL
-	reviews := make([]Review, 0)
-
+func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	g.Collector.OnHTML("div.styles_mainContent__nFxAv section.styles_reviewsContainer__3_GQw", func(element *colly.HTMLElement) {
 		element.ForEach("div.styles_cardWrapper__LcCPA", func(i int, h *colly.HTMLElement) {
 			review := Review{
@@ -60,9 +65,44 @@ func (g *GoCollyProgram) GetReviews() {
 	g.Collector.OnError(func(r *colly.Response, err error) {
 		g.Logger.WriteError(fmt.Sprintf("error: %s", err.Error()))
 	})
+	return g.Collector
+}
+
+func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) {
+	//empty slice
+	defer emptyReviews(&reviews)
+	start := time.Now()
 
 	//Visiting URLS
+	jobNo, err := strconv.Atoi(g.Config.MaxPage)
+	if err != nil {
+		g.Logger.WriteError(err.Error())
+	}
 
+	var wg sync.WaitGroup
+	wg.Add(jobNo)
+	for i := 1; i <= jobNo; i++ {
+		page := strconv.Itoa(i)
+		go func(page string) {
+			defer wg.Done()
+			url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
+			if err := collector.Visit(url); err != nil {
+				g.Logger.WriteError(err.Error())
+			}
+		}(page)
+	}
+	wg.Wait()
+	utils.PrettyPrintStruct(reviews)
+	fmt.Printf("time: %s", time.Since(start))
+	writeJSON(reviews)
+}
+
+func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) {
+	//empty slice
+	defer emptyReviews(&reviews)
+	start := time.Now()
+
+	//Visiting URLS
 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
 	if err != nil {
 		g.Logger.WriteError(err.Error())
@@ -72,13 +112,16 @@ func (g *GoCollyProgram) GetReviews() {
 		page := strconv.Itoa(i)
 
 		url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
-		if err := g.Collector.Visit(url); err != nil {
+		if err := collector.Visit(url); err != nil {
 			g.Logger.WriteError(err.Error())
 		}
+
 	}
 
 	utils.PrettyPrintStruct(reviews)
+	fmt.Printf("time: %s", time.Since(start))
 	writeJSON(reviews)
+
 }
 
 func writeJSON(data []Review) {
@@ -89,4 +132,8 @@ func writeJSON(data []Review) {
 	}
 
 	_ = ioutil.WriteFile("leaguereviews.json", file, 0644)
+}
+
+func emptyReviews(list *[]Review) {
+	list = nil
 }
