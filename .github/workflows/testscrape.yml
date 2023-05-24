@@ -11,5 +11,5 @@ jobs:
       - name: tests the scraper and checks the benchmarks
         uses: actions/checkout@v2
       - name: tests the scraper
-        run: cd scraper && ./runtests.sh
+        run: cd tests && ./runtests.sh
 
