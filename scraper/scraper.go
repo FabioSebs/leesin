@@ -11,7 +11,6 @@ import (
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
-	"github.com/FabioSebs/leesin/utils"
 	"github.com/gocolly/colly"
 )
 
@@ -92,7 +91,6 @@ func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) time
 		}(page)
 	}
 	wg.Wait()
-	utils.PrettyPrintStruct(reviews)
 	writeJSON(reviews)
 	return time.Since(start)
 }
@@ -117,20 +115,20 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) tim
 		}
 
 	}
-
-	utils.PrettyPrintStruct(reviews)
 	writeJSON(reviews)
 	return time.Since(start)
 }
 
 func writeJSON(data []Review) {
-	file, err := json.MarshalIndent(data, "", " ")
+	leaguedata, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println("Unable to create json file")
 		return
 	}
 
-	_ = ioutil.WriteFile("leaguereviews.json", file, 0644)
+	if err = ioutil.WriteFile("leaguereviews.json", leaguedata, 0644); err != nil {
+		log.Println("unable to write to json file")
+	}
 }
 
 func emptyReviews(list *[]Review) {
