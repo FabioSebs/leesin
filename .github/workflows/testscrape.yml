@@ -1,0 +1,15 @@
+run-name: testing webscrape
+
+on:
+  push: # enabling push event on master branch to fire the workflow
+    branches:
+      - main
+jobs:
+  job1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: tests the scraper and checks the benchmarks
+        uses: actions/checkout@v2
+      - name: tests the scraper
+        run: cd tests && ./runtests.sh
+
