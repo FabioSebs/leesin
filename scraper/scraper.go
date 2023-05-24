@@ -20,8 +20,8 @@ var (
 
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
-	GetReviewsConcurrently(*colly.Collector) time.Duration
-	GetReviewsSynchronously(*colly.Collector) time.Duration
+	GetReviewsConcurrently(*colly.Collector) ([]Review, time.Duration)
+	GetReviewsSynchronously(*colly.Collector) ([]Review, time.Duration)
 }
 
 type GoCollyProgram struct {
@@ -67,11 +67,11 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	return g.Collector
 }
 
-func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) time.Duration {
+func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]Review, time.Duration) {
 	//empty slice
 	defer emptyReviews(&reviews)
 	start := time.Now()
-
+	returnRev := make([]Review, 0)
 	//Visiting URLS
 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
 	if err != nil {
@@ -91,14 +91,16 @@ func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) time
 		}(page)
 	}
 	wg.Wait()
-	writeJSON(reviews)
-	return time.Since(start)
+	// writeJSON(reviews)
+	returnRev = reviews
+	return returnRev, time.Since(start)
 }
 
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) time.Duration {
+func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]Review, time.Duration) {
 	//empty slice
 	defer emptyReviews(&reviews)
 	start := time.Now()
+	returnRev := make([]Review, 0)
 
 	//Visiting URLS
 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
@@ -115,8 +117,9 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) tim
 		}
 
 	}
-	writeJSON(reviews)
-	return time.Since(start)
+	// writeJSON(reviews)
+	returnRev = reviews
+	return returnRev, time.Since(start)
 }
 
 func writeJSON(data []Review) {

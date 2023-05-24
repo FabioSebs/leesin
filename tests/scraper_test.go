@@ -15,7 +15,7 @@ func TestScrape(t *testing.T) {
 
 	t.Run("Synchronous Scrape", func(t *testing.T) {
 		t.Parallel()
-		duration := syncColly.GetReviewsSynchronously(synccollector)
+		_, duration := syncColly.GetReviewsSynchronously(synccollector)
 		if duration == 0 {
 			t.Errorf("duration is %s, process failed", duration)
 		}
@@ -24,7 +24,7 @@ func TestScrape(t *testing.T) {
 
 	t.Run("Concurrent Scrape", func(t *testing.T) {
 		t.Parallel()
-		duration := conColly.GetReviewsConcurrently(concollector)
+		_, duration := conColly.GetReviewsConcurrently(concollector)
 		if duration == 0 {
 			t.Errorf("duration is %s, process failed", duration)
 		}
