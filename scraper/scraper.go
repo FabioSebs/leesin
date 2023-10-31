@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strconv"
-	"sync"
+	"reflect"
 	"time"
 
 	"github.com/FabioSebs/leesin/config"
@@ -15,13 +14,13 @@ import (
 )
 
 var (
-	reviews = make([]Review, 0)
+	cars = make([]EV, 0)
 )
 
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
-	GetReviewsConcurrently(*colly.Collector) ([]Review, time.Duration)
-	GetReviewsSynchronously(*colly.Collector) ([]Review, time.Duration)
+	// GetReviewsConcurrently(*colly.Collector) ([]EV, time.Duration)
+	GetReviewsSynchronously(*colly.Collector) ([]EV, time.Duration)
 }
 
 type GoCollyProgram struct {
@@ -43,15 +42,13 @@ func NewWebScraper() WebScraper {
 }
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
-	g.Collector.OnHTML("div.styles_mainContent__nFxAv section.styles_reviewsContainer__3_GQw", func(element *colly.HTMLElement) {
-		element.ForEach("div.styles_cardWrapper__LcCPA", func(i int, h *colly.HTMLElement) {
-			review := Review{
-				User:   h.DOM.Find("div.styles_reviewCardInner__EwDq2 aside.styles_consumerInfoWrapper__KP3Ra div.styles_consumerDetailsWrapper__p2wdr a span").First().Text(),
-				Rating: "1",
-				Review: h.DOM.Find("div.styles_reviewCardInner__EwDq2 section.styles_reviewContentwrapper__zH_9M div.styles_reviewContent__0Q2Tg p.typography_body-l__KUYFJ").Text(),
-				Date:   h.DOM.Find("div.styles_reviewCardInner__EwDq2 section.styles_reviewContentwrapper__zH_9M div.styles_reviewContent__0Q2Tg p.typography_body-m__xgxZ_").Text(),
+	g.Collector.OnHTML("li.card", func(element *colly.HTMLElement) {
+		element.ForEach("div.card-panel", func(_ int, h *colly.HTMLElement) {
+			car := EV{
+				Name:  removeExtraWhitespace(h.DOM.Find("a.vh-name").First().Text()),
+				Price: removeExtraWhitespace(h.DOM.Find("div.vh-price").First().Text()),
 			}
-			reviews = append(reviews, review)
+			cars = append(cars, car)
 		})
 	})
 
@@ -61,79 +58,69 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	})
 
 	// Error Feedback
-	g.Collector.OnError(func(r *colly.Response, err error) {
+	g.Collector.OnError(func(_ *colly.Response, err error) {
 		g.Logger.WriteError(fmt.Sprintf("error: %s", err.Error()))
 	})
 	return g.Collector
 }
 
-func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]Review, time.Duration) {
-	//empty slice
-	defer emptyReviews(&reviews)
-	start := time.Now()
-	returnRev := make([]Review, 0)
-	//Visiting URLS
-	jobNo, err := strconv.Atoi(g.Config.MaxPage)
-	if err != nil {
-		g.Logger.WriteError(err.Error())
-	}
+// func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]EV, time.Duration) {
+// 	//empty slice
+// 	defer emptyReviews(&cars)
+// 	start := time.Now()
 
-	var wg sync.WaitGroup
-	wg.Add(jobNo)
-	for i := 1; i <= jobNo; i++ {
-		page := strconv.Itoa(i)
-		go func(page string) {
-			defer wg.Done()
-			url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
-			if err := collector.Visit(url); err != nil {
-				g.Logger.WriteError(err.Error())
-			}
-		}(page)
-	}
-	wg.Wait()
-	// writeJSON(reviews)
-	returnRev = reviews
-	return returnRev, time.Since(start)
-}
+// 	//Visiting URLS
+// 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
+// 	if err != nil {
+// 		g.Logger.WriteError(err.Error())
+// 	}
 
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]Review, time.Duration) {
-	//empty slice
-	defer emptyReviews(&reviews)
+// 	var wg sync.WaitGroup
+// 	wg.Add(jobNo)
+// 	for i := 1; i <= jobNo; i++ {
+// 		page := strconv.Itoa(i)
+// 		go func(page string) {
+// 			defer wg.Done()
+// 			url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
+// 			if err := collector.Visit(url); err != nil {
+// 				g.Logger.WriteError(err.Error())
+// 			}
+// 		}(page)
+// 	}
+// 	wg.Wait()
+// 	// writeJSON(reviews)
+// 	return cars, time.Since(start)
+// }
+
+func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]EV, time.Duration) {
 	start := time.Now()
-	returnRev := make([]Review, 0)
 
 	//Visiting URLS
-	jobNo, err := strconv.Atoi(g.Config.MaxPage)
-	if err != nil {
-		g.Logger.WriteError(err.Error())
-	}
+	structType := reflect.TypeOf(g.Config.FullDomain)
+	structValue := reflect.ValueOf(g.Config.FullDomain)
 
-	for i := 1; i <= jobNo; i++ {
-		page := strconv.Itoa(i)
+	for i := 0; i < structType.NumField(); i++ {
+		key := structType.Field(i)
+		url := structValue.Field(i)
 
-		url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
-		if err := collector.Visit(url); err != nil {
+		if err := collector.Visit(url.String()); err != nil {
 			g.Logger.WriteError(err.Error())
 		}
-
+		writeJSON(cars, key.Name)
 	}
-	// writeJSON(reviews)
-	returnRev = reviews
-	return returnRev, time.Since(start)
+
+	return cars, time.Since(start)
 }
 
-func writeJSON(data []Review) {
-	leaguedata, err := json.MarshalIndent(data, "", " ")
+func writeJSON(data []EV, fname string) {
+	cardata, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println("Unable to create json file")
 		return
 	}
 
-	if err = ioutil.WriteFile("leaguereviews.json", leaguedata, 0644); err != nil {
+	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), cardata, 0644); err != nil {
 		log.Println("unable to write to json file")
 	}
-}
-
-func emptyReviews(list *[]Review) {
-	list = nil
+	cars = cars[:0]
 }
