@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"reflect"
 	"time"
 
 	"github.com/FabioSebs/leesin/config"
@@ -14,7 +13,8 @@ import (
 )
 
 var (
-	cars = make([]EV, 0)
+	cars         = make([]EV, 0)
+	publications = make([]Publication, 0)
 )
 
 type WebScraper interface {
@@ -42,13 +42,17 @@ func NewWebScraper() WebScraper {
 }
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
-	g.Collector.OnHTML("li.card", func(element *colly.HTMLElement) {
-		element.ForEach("div.card-panel", func(_ int, h *colly.HTMLElement) {
-			car := EV{
-				Name:  removeExtraWhitespace(h.DOM.Find("a.vh-name").First().Text()),
-				Price: removeExtraWhitespace(h.DOM.Find("div.vh-price").First().Text()),
+	g.Collector.OnHTML("div.facetwp-template ", func(element *colly.HTMLElement) {
+		element.ForEach("div.article_content", func(_ int, h *colly.HTMLElement) {
+			pub := Publication{
+				Title:  h.ChildText("h3"),
+				Source: h.ChildAttr("h3 a", "href"), // Corrected line
+				Year:   h.ChildText("p.post_meta"),
 			}
-			cars = append(cars, car)
+			h.ForEach("div.authors", func(_ int, e *colly.HTMLElement) {
+				pub.Author = append(pub.Author, e.ChildText("a"))
+			})
+			publications = append(publications, pub)
 		})
 	})
 
@@ -96,23 +100,17 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]
 	start := time.Now()
 
 	//Visiting URLS
-	structType := reflect.TypeOf(g.Config.FullDomain)
-	structValue := reflect.ValueOf(g.Config.FullDomain)
-
-	for i := 0; i < structType.NumField(); i++ {
-		key := structType.Field(i)
-		url := structValue.Field(i)
-
-		if err := collector.Visit(url.String()); err != nil {
+	for i := 1; i < 7; i++ {
+		if err := collector.Visit(fmt.Sprintf("https://theicct.org/insight-analysis/publications/?_icct_authors=253&_paged=%d&_sort=date_desc", i)); err != nil {
 			g.Logger.WriteError(err.Error())
 		}
-		writeJSON(cars, key.Name)
+		writeJSON(publications, "publications")
 	}
 
 	return cars, time.Since(start)
 }
 
-func writeJSON(data []EV, fname string) {
+func writeJSON(data []Publication, fname string) {
 	cardata, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println("Unable to create json file")

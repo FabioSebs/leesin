@@ -23,6 +23,7 @@ type Config struct {
 	FullDomain     LatestEVDomains
 	AllowedDomains []string
 	MaxPage        string
+	ICCTDomain     string
 }
 
 func NewConfig() Config {
@@ -41,5 +42,6 @@ func NewConfig() Config {
 		},
 		AllowedDomains: []string{os.Getenv("ALLOWED1"), os.Getenv("ALLOWED2")},
 		MaxPage:        os.Getenv("MAXPAGE"),
+		ICCTDomain:     os.Getenv("ICCTDOMAIN"),
 	}
 }
