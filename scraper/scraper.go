@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FabioSebs/leesin/config"
@@ -13,8 +15,8 @@ import (
 )
 
 var (
-	cars         = make([]EV, 0)
-	publications = make([]Publication, 0)
+	cars     = make([]EV, 0)
+	bookings = make([]Booking, 0)
 )
 
 type WebScraper interface {
@@ -42,17 +44,22 @@ func NewWebScraper() WebScraper {
 }
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
-	g.Collector.OnHTML("div.facetwp-template ", func(element *colly.HTMLElement) {
-		element.ForEach("div.article_content", func(_ int, h *colly.HTMLElement) {
-			pub := Publication{
-				Title:  h.ChildText("h3"),
-				Source: h.ChildAttr("h3 a", "href"), // Corrected line
-				Year:   h.ChildText("p.post_meta"),
-			}
-			h.ForEach("div.authors", func(_ int, e *colly.HTMLElement) {
-				pub.Author = append(pub.Author, e.ChildText("a"))
-			})
-			publications = append(publications, pub)
+	g.Collector.OnHTML("div.d4924c9e74 div.c82435a4b8", func(element *colly.HTMLElement) {
+		var book Booking
+		element.ForEach("div.c066246e13", func(_ int, h *colly.HTMLElement) {
+			book.Title = h.ChildText("div.f6431b446c")
+			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			location := h.ChildText("div.abf093bdfe span.aee5343fdb")
+			result := strings.Replace(location, "Show on map", "", -1)
+			result = strings.TrimSpace(result)
+			book.Location = result
+			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			review, _ := strconv.ParseFloat(h.ChildText("div.aca0ade214 div.a3b8729ab1.d86cee9b25"), 32)
+			book.Review = float32(review)
+
+			book.Source = h.ChildAttr("a.a78ca197d0", "href")
+
+			bookings = append(bookings, book)
 		})
 	})
 
@@ -100,24 +107,24 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]
 	start := time.Now()
 
 	//Visiting URLS
-	for i := 1; i < 7; i++ {
-		if err := collector.Visit(fmt.Sprintf("https://theicct.org/insight-analysis/publications/?_icct_authors=253&_paged=%d&_sort=date_desc", i)); err != nil {
+	for i := 0; i <= 975; i += 25 {
+		if err := collector.Visit(fmt.Sprintf(g.Config.BookingDomain, i)); err != nil {
 			g.Logger.WriteError(err.Error())
 		}
-		writeJSON(publications, "publications")
+		writeJSON(bookings, "balidata")
 	}
 
 	return cars, time.Since(start)
 }
 
-func writeJSON(data []Publication, fname string) {
-	cardata, err := json.MarshalIndent(data, "", " ")
+func writeJSON(data []Booking, fname string) {
+	balidata, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println("Unable to create json file")
 		return
 	}
 
-	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), cardata, 0644); err != nil {
+	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), balidata, 0644); err != nil {
 		log.Println("unable to write to json file")
 	}
 	cars = cars[:0]

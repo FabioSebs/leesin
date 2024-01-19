@@ -6,42 +6,24 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-type LatestEVDomains struct {
-	General     string
-	MPV         string
-	SUV         string
-	Crossover   string
-	Hatchback   string
-	Sedan       string
-	PickupTruck string
-	Coupe       string
-	Wagon       string
-	Motorcycles string
+type BookingDomain struct {
+	URL string
 }
 
 type Config struct {
-	FullDomain     LatestEVDomains
+	FullDomain     BookingDomain
 	AllowedDomains []string
 	MaxPage        string
-	ICCTDomain     string
+	BookingDomain  string
 }
 
 func NewConfig() Config {
 	return Config{
-		FullDomain: LatestEVDomains{
-			General:     os.Getenv("GENERAL"),
-			MPV:         os.Getenv("MPV"),
-			SUV:         os.Getenv("SUV"),
-			Crossover:   os.Getenv("CROSSOVER"),
-			Hatchback:   os.Getenv("HATCHBACK"),
-			Sedan:       os.Getenv("SEDAN"),
-			PickupTruck: os.Getenv("PICKUPTRUCK"),
-			Coupe:       os.Getenv("COUPE"),
-			Wagon:       os.Getenv("WAGON"),
-			Motorcycles: os.Getenv("MOTORS"),
+		FullDomain: BookingDomain{
+			URL: os.Getenv("BOOKINGDOMAIN"),
 		},
 		AllowedDomains: []string{os.Getenv("ALLOWED1"), os.Getenv("ALLOWED2")},
 		MaxPage:        os.Getenv("MAXPAGE"),
-		ICCTDomain:     os.Getenv("ICCTDOMAIN"),
+		BookingDomain:  os.Getenv("BOOKINGDOMAIN"),
 	}
 }
