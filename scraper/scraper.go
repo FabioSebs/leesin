@@ -1,17 +1,18 @@
 package scraper
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
+	"github.com/chromedp/chromedp"
 	"github.com/gocolly/colly"
 )
 
@@ -44,16 +45,13 @@ func NewWebScraper() WebScraper {
 	}
 }
 
-// TODO: STARS
-// TODO: VISIT NESTED URL (CREATE NEW COLLECTOR SET UP SEPERATE OnHTML and VISIT)
-// TODO: GET FULL ADDRESS
-// TODO: GET PRICE
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	///////////////////////////////////////////////////// ORIGINAL COLLY /////////////////////////////////////////////////////
-	g.Collector.OnHTML("div.d4924c9e74 div.c82435a4b8", func(element *colly.HTMLElement) {
-		element.ForEach("div.c066246e13", func(_ int, h *colly.HTMLElement) {
+	g.Collector.OnHTML("div[data-stid='section-results'] div[data-stid='property-listing-results']", func(element *colly.HTMLElement) {
+		element.ForEach("div.uitk-spacing div.uitk-card div.uitk-layout-grid div.uitk-card-content-section", func(_ int, h *colly.HTMLElement) {
 			var book Booking
-			book.Title = h.ChildText("div.c1edfbabcb div.d6767e681c h3.aab71f8e4e")
+			book.Title = h.ChildText("div.uitk-layout-flex div.uitk-spacing div.uitk-layout-flex h3")
+			fmt.Println(book.Title)
 			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			location := h.ChildText("div.abf093bdfe span.aee5343fdb")
 			result := strings.Replace(location, "Show on map", "", -1)
@@ -88,52 +86,52 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	return g.Collector
 }
 
-func getMoreInfo(books []Booking) []Booking {
-	var i int = 0
-	env := config.NewConfig()
-	l := logger.NewLogger()
+// func getMoreInfo(books []Booking) []Booking {
+// 	var i int = 0
+// 	env := config.NewConfig()
+// 	l := logger.NewLogger()
 
-	///////////////////////////////////////////////////// NESTED COLLY /////////////////////////////////////////////////////
-	nestedColly := colly.NewCollector(colly.AllowedDomains(
-		env.AllowedDomains...,
-	))
+// 	///////////////////////////////////////////////////// NESTED COLLY /////////////////////////////////////////////////////
+// 	nestedColly := colly.NewCollector(colly.AllowedDomains(
+// 		env.AllowedDomains...,
+// 	))
 
-	nestedColly.OnHTML("div#bodyconstraint div#bodyconstraint-inner div.k2-hp--gallery-header", func(element *colly.HTMLElement) {
-		books[i].Address = element.ChildText("p.address span.hp_address_subtitle")
-		books[i].PostCode = extractPostalCode(books[i].Address)
-		i++
-	})
+// 	nestedColly.OnHTML("div#bodyconstraint div#bodyconstraint-inner div.k2-hp--gallery-header", func(element *colly.HTMLElement) {
+// 		books[i].Address = element.ChildText("p.address span.hp_address_subtitle")
+// 		books[i].PostCode = extractPostalCode(books[i].Address)
+// 		i++
+// 	})
 
-	// Request Feedback
-	nestedColly.OnRequest(func(r *colly.Request) {
-		l.WriteTrace(fmt.Sprintf("visiting url: %s", r.URL.String()))
-	})
-	nestedColly.OnError(func(_ *colly.Response, err error) {
-		l.WriteError(fmt.Sprintf("error: %s", err.Error()))
-	})
+// 	// Request Feedback
+// 	nestedColly.OnRequest(func(r *colly.Request) {
+// 		l.WriteTrace(fmt.Sprintf("visiting url: %s", r.URL.String()))
+// 	})
+// 	nestedColly.OnError(func(_ *colly.Response, err error) {
+// 		l.WriteError(fmt.Sprintf("error: %s", err.Error()))
+// 	})
 
-	for _, val := range books {
-		launchSecondVisit(nestedColly, val.Source)
-	}
-	return books
-}
+// 	for _, val := range books {
+// 		launchSecondVisit(nestedColly, val.Source)
+// 	}
+// 	return books
+// }
 
-func launchSecondVisit(collector *colly.Collector, source string) {
-	if err := collector.Visit(source); err != nil {
-		fmt.Println(err.Error())
-	}
-}
+// func launchSecondVisit(collector *colly.Collector, source string) {
+// 	if err := collector.Visit(source); err != nil {
+// 		fmt.Println(err.Error())
+// 	}
+// }
 
-func extractPostalCode(inputString string) string {
-	// Define a regular expression pattern for matching postal codes
-	postalCodePattern := regexp.MustCompile(`\b\d{5}\b`)
+// func extractPostalCode(inputString string) string {
+// 	// Define a regular expression pattern for matching postal codes
+// 	postalCodePattern := regexp.MustCompile(`\b\d{5}\b`)
 
-	// Find the first occurrence of the pattern in the input string
-	match := postalCodePattern.FindString(inputString)
+// 	// Find the first occurrence of the pattern in the input string
+// 	match := postalCodePattern.FindString(inputString)
 
-	// Return the extracted postal code if found, otherwise return an empty string
-	return match
-}
+// 	// Return the extracted postal code if found, otherwise return an empty string
+// 	return match
+// }
 
 // func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]EV, time.Duration) {
 // 	//empty slice
@@ -164,20 +162,37 @@ func extractPostalCode(inputString string) string {
 // }
 
 func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]EV, time.Duration) {
-
+	// Create a new Chrome browser session
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
 	start := time.Now()
 
 	//Visiting URLS
-	for i := 0; i <= 975; i += 25 {
-		fmt.Println(i)
-		if err := collector.Visit(fmt.Sprintf(g.Config.BookingDomain, i)); err != nil {
-			g.Logger.WriteError(err.Error())
-		}
+	// Visit the initial URL to trigger the page loading
+	err := chromedp.Run(ctx, chromedp.Navigate(g.Config.ExpediaDomain))
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	newbooks := getMoreInfo(bookings)
+	// Introduce a delay to allow lazy loading
+	time.Sleep(5 * time.Second)
 
-	writeJSON(newbooks, "balidata")
+	// Manually trigger lazy loading by scrolling or interacting with the page
+	err = chromedp.Run(ctx, chromedp.Evaluate(`window.scrollTo(0, document.body.scrollHeight);`, nil))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Allow time for the lazy loading to complete
+	time.Sleep(5 * time.Second)
+
+	if err := collector.Visit(g.Config.ExpediaDomain); err != nil {
+		g.Logger.WriteError(err.Error())
+	}
+
+	collector.Wait()
+
+	writeJSON(bookings, "expedia")
 	return cars, time.Since(start)
 }
 

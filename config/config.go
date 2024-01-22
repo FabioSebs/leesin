@@ -15,6 +15,8 @@ type Config struct {
 	AllowedDomains []string
 	MaxPage        string
 	BookingDomain  string
+	HotelDomain    string
+	ExpediaDomain  string
 }
 
 func NewConfig() Config {
@@ -25,5 +27,7 @@ func NewConfig() Config {
 		AllowedDomains: []string{os.Getenv("ALLOWED1"), os.Getenv("ALLOWED2")},
 		MaxPage:        os.Getenv("MAXPAGE"),
 		BookingDomain:  os.Getenv("BOOKINGDOMAIN"),
+		HotelDomain:    os.Getenv("HOTELDOMAIN"),
+		ExpediaDomain:  os.Getenv("EXPEDIADOMAIN"),
 	}
 }
