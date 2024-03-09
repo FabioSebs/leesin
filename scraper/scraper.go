@@ -1,18 +1,10 @@
 package scraper
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
-	"github.com/chromedp/chromedp"
 	"github.com/gocolly/colly"
 )
 
@@ -24,7 +16,7 @@ var (
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
 	// GetReviewsConcurrently(*colly.Collector) ([]EV, time.Duration)
-	GetReviewsSynchronously(*colly.Collector) ([]EV, time.Duration)
+	GetReviewsSynchronously(*colly.Collector)
 }
 
 type GoCollyProgram struct {
@@ -49,27 +41,7 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	///////////////////////////////////////////////////// ORIGINAL COLLY /////////////////////////////////////////////////////
 	g.Collector.OnHTML("div[data-stid='section-results'] div[data-stid='property-listing-results']", func(element *colly.HTMLElement) {
 		element.ForEach("div.uitk-spacing div.uitk-card div.uitk-layout-grid div.uitk-card-content-section", func(_ int, h *colly.HTMLElement) {
-			var book Booking
-			book.Title = h.ChildText("div.uitk-layout-flex div.uitk-spacing div.uitk-layout-flex h3")
-			fmt.Println(book.Title)
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			location := h.ChildText("div.abf093bdfe span.aee5343fdb")
-			result := strings.Replace(location, "Show on map", "", -1)
-			result = strings.TrimSpace(result)
-			book.Location = result
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			review, _ := strconv.ParseFloat(h.ChildText("div.aca0ade214 div.a3b8729ab1.d86cee9b25"), 32)
-			book.Review = float32(review)
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			book.Source = h.ChildAttr("a.a78ca197d0", "href")
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			book.Stars = h.ChildAttr("div.d8c86a593f div.b3f3c831be", "aria-label")
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			reviewNo := strings.Split(h.ChildText("div.aca0ade214.ebac6e22e9.cd2e7d62b0.a0ff1335a1 div.abf093bdfe.f45d8e4c32.d935416c47"), " ")
-			book.ReviewNumber, _ = strconv.Atoi(reviewNo[0])
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-			bookings = append(bookings, book)
 		})
 
 	})
@@ -161,31 +133,7 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 // 	return cars, time.Since(start)
 // }
 
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]EV, time.Duration) {
-	// Create a new Chrome browser session
-	ctx, cancel := chromedp.NewContext(context.Background())
-	defer cancel()
-	start := time.Now()
-
-	//Visiting URLS
-	// Visit the initial URL to trigger the page loading
-	err := chromedp.Run(ctx, chromedp.Navigate(g.Config.ExpediaDomain))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Introduce a delay to allow lazy loading
-	time.Sleep(5 * time.Second)
-
-	// Manually trigger lazy loading by scrolling or interacting with the page
-	err = chromedp.Run(ctx, chromedp.Evaluate(`window.scrollTo(0, document.body.scrollHeight);`, nil))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Allow time for the lazy loading to complete
-	time.Sleep(5 * time.Second)
-
+func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) {
 	if err := collector.Visit(g.Config.ExpediaDomain); err != nil {
 		g.Logger.WriteError(err.Error())
 	}
@@ -193,18 +141,4 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]
 	collector.Wait()
 
 	writeJSON(bookings, "expedia")
-	return cars, time.Since(start)
-}
-
-func writeJSON(data []Booking, fname string) {
-	balidata, err := json.MarshalIndent(data, "", " ")
-	if err != nil {
-		log.Println("Unable to create json file")
-		return
-	}
-
-	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), balidata, 0644); err != nil {
-		log.Println("unable to write to json file")
-	}
-	cars = cars[:0]
 }

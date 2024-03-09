@@ -17,6 +17,7 @@ type Config struct {
 	BookingDomain  string
 	HotelDomain    string
 	ExpediaDomain  string
+	ICCTDomain     string
 }
 
 func NewConfig() Config {
@@ -29,5 +30,6 @@ func NewConfig() Config {
 		BookingDomain:  os.Getenv("BOOKINGDOMAIN"),
 		HotelDomain:    os.Getenv("HOTELDOMAIN"),
 		ExpediaDomain:  os.Getenv("EXPEDIADOMAIN"),
+		ICCTDomain:     os.Getenv("ICCTDOMAIN"),
 	}
 }
