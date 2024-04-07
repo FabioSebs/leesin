@@ -34,3 +34,9 @@ type Publication struct {
 	Author6     string `json:"Author 6"`
 	Link        string `json:"Link"`
 }
+
+type ESector struct {
+	Region string
+	Number string
+	Year   string
+}

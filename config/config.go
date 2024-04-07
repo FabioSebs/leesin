@@ -21,11 +21,9 @@ type Config struct {
 }
 
 func NewConfig() Config {
+
 	return Config{
-		FullDomain: BookingDomain{
-			URL: os.Getenv("BOOKINGDOMAIN"),
-		},
-		AllowedDomains: []string{os.Getenv("ALLOWED1"), os.Getenv("ALLOWED2")},
+		AllowedDomains: []string{os.Getenv("ALLOWED1"), os.Getenv("ALLOWED2"), os.Getenv("ALLOWED3"), os.Getenv("ALLOWED4"), os.Getenv("ALLOWED5")},
 		MaxPage:        os.Getenv("MAXPAGE"),
 		BookingDomain:  os.Getenv("BOOKINGDOMAIN"),
 		HotelDomain:    os.Getenv("HOTELDOMAIN"),
