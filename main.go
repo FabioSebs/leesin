@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	ws := scraper.NewESectorScraper()
+	ws := scraper.NewWebScraper()
 	collector := ws.CollectorSetup()
-	ws.GetReviewsSynchronously(collector)
+	ws.StartScraper(collector)
 }

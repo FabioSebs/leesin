@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
@@ -9,14 +10,12 @@ import (
 )
 
 var (
-	cars     = make([]EV, 0)
-	bookings = make([]Booking, 0)
+	data = make([]EVModel, 0)
 )
 
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
-	// GetReviewsConcurrently(*colly.Collector) ([]EV, time.Duration)
-	GetReviewsSynchronously(*colly.Collector)
+	StartScraper(*colly.Collector)
 }
 
 type GoCollyProgram struct {
@@ -39,11 +38,24 @@ func NewWebScraper() WebScraper {
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	///////////////////////////////////////////////////// ORIGINAL COLLY /////////////////////////////////////////////////////
-	g.Collector.OnHTML("div[data-stid='section-results'] div[data-stid='property-listing-results']", func(element *colly.HTMLElement) {
-		element.ForEach("div.uitk-spacing div.uitk-card div.uitk-layout-grid div.uitk-card-content-section", func(_ int, h *colly.HTMLElement) {
+	g.Collector.OnHTML("main div.content div.list", func(element *colly.HTMLElement) {
+		element.ForEach("div.list-item div.data-wrapper", func(_ int, h *colly.HTMLElement) {
+			var (
+				model EVModel
+			)
+			//Initializing
+			model.Name = h.ChildText("div.title-wrap h2")
 
+			model.Acceleration = h.ChildText("div.specs p.left span.acceleration")
+			model.TopSpeed = h.ChildText("div.specs p.left span.topspeed")
+			model.Range = h.ChildText("div.specs p.left span.erange_real")
+			model.Efficiency = h.ChildText("div.specs p.left span.efficiency")
+			model.FastCharge = h.ChildText("div.specs p.left span.fastcharge_speed_print")
+			model.Price = h.ChildText("div.pricing span.price_buy span")
+
+			// Appending
+			data = append(data, model)
 		})
-
 	})
 
 	// Request Feedback
@@ -58,87 +70,24 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	return g.Collector
 }
 
-// func getMoreInfo(books []Booking) []Booking {
-// 	var i int = 0
-// 	env := config.NewConfig()
-// 	l := logger.NewLogger()
+func (g *GoCollyProgram) StartScraper(collector *colly.Collector) {
+	max, err := strconv.Atoi(g.Config.MaxPage)
+	if err != nil {
+		g.Logger.WriteError(fmt.Sprintf("error: %s", err.Error()))
+	}
 
-// 	///////////////////////////////////////////////////// NESTED COLLY /////////////////////////////////////////////////////
-// 	nestedColly := colly.NewCollector(colly.AllowedDomains(
-// 		env.AllowedDomains...,
-// 	))
+	for i := 0; i <= max; i++ {
+		var url string
+		var page string = strconv.Itoa(i)
 
-// 	nestedColly.OnHTML("div#bodyconstraint div#bodyconstraint-inner div.k2-hp--gallery-header", func(element *colly.HTMLElement) {
-// 		books[i].Address = element.ChildText("p.address span.hp_address_subtitle")
-// 		books[i].PostCode = extractPostalCode(books[i].Address)
-// 		i++
-// 	})
+		url = fmt.Sprintf(g.Config.FullDomain, page)
 
-// 	// Request Feedback
-// 	nestedColly.OnRequest(func(r *colly.Request) {
-// 		l.WriteTrace(fmt.Sprintf("visiting url: %s", r.URL.String()))
-// 	})
-// 	nestedColly.OnError(func(_ *colly.Response, err error) {
-// 		l.WriteError(fmt.Sprintf("error: %s", err.Error()))
-// 	})
-
-// 	for _, val := range books {
-// 		launchSecondVisit(nestedColly, val.Source)
-// 	}
-// 	return books
-// }
-
-// func launchSecondVisit(collector *colly.Collector, source string) {
-// 	if err := collector.Visit(source); err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// }
-
-// func extractPostalCode(inputString string) string {
-// 	// Define a regular expression pattern for matching postal codes
-// 	postalCodePattern := regexp.MustCompile(`\b\d{5}\b`)
-
-// 	// Find the first occurrence of the pattern in the input string
-// 	match := postalCodePattern.FindString(inputString)
-
-// 	// Return the extracted postal code if found, otherwise return an empty string
-// 	return match
-// }
-
-// func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]EV, time.Duration) {
-// 	//empty slice
-// 	defer emptyReviews(&cars)
-// 	start := time.Now()
-
-// 	//Visiting URLS
-// 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
-// 	if err != nil {
-// 		g.Logger.WriteError(err.Error())
-// 	}
-
-// 	var wg sync.WaitGroup
-// 	wg.Add(jobNo)
-// 	for i := 1; i <= jobNo; i++ {
-// 		page := strconv.Itoa(i)
-// 		go func(page string) {
-// 			defer wg.Done()
-// 			url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
-// 			if err := collector.Visit(url); err != nil {
-// 				g.Logger.WriteError(err.Error())
-// 			}
-// 		}(page)
-// 	}
-// 	wg.Wait()
-// 	// writeJSON(reviews)
-// 	return cars, time.Since(start)
-// }
-
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) {
-	if err := collector.Visit(g.Config.ExpediaDomain); err != nil {
-		g.Logger.WriteError(err.Error())
+		if err := collector.Visit(url); err != nil {
+			g.Logger.WriteError(err.Error())
+		}
 	}
 
 	collector.Wait()
 
-	writeJSON(bookings, "expedia")
+	writeJSON(data, "ev-latest")
 }
