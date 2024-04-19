@@ -7,6 +7,7 @@ type EV struct {
 
 type EVModel struct {
 	Name         string `json:"name"`
+	Year         string `json:"year"`
 	Acceleration string `json:"accelaration"`
 	TopSpeed     string `json:"top-speed"`
 	Range        string `json:"range"`

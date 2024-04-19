@@ -38,20 +38,25 @@ func NewWebScraper() WebScraper {
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	///////////////////////////////////////////////////// ORIGINAL COLLY /////////////////////////////////////////////////////
-	g.Collector.OnHTML("main div.content div.list", func(element *colly.HTMLElement) {
-		element.ForEach("div.list-item div.data-wrapper", func(_ int, h *colly.HTMLElement) {
+	g.Collector.OnHTML("main.content div.list", func(element *colly.HTMLElement) {
+		element.ForEach("div.list-item div.item-data", func(_ int, h *colly.HTMLElement) {
 			var (
 				model EVModel
 			)
 			//Initializing
 			model.Name = h.ChildText("div.title-wrap h2")
 
-			model.Acceleration = h.ChildText("div.specs p.left span.acceleration")
-			model.TopSpeed = h.ChildText("div.specs p.left span.topspeed")
-			model.Range = h.ChildText("div.specs p.left span.erange_real")
-			model.Efficiency = h.ChildText("div.specs p.left span.efficiency")
-			model.FastCharge = h.ChildText("div.specs p.left span.fastcharge_speed_print")
-			model.Price = h.ChildText("div.pricing span.price_buy span")
+			model.Year = h.ChildText("div.title-wrap div.current")
+			if model.Year == "" {
+				model.Year = h.ChildText("div.title-wrap div.not-current")
+			}
+
+			model.Acceleration = h.ChildText("div.specs div span.acceleration")
+			model.TopSpeed = h.ChildText("div.specs div span.topspeed")
+			model.Range = h.ChildText("div.specs div span.erange_real")
+			model.Efficiency = h.ChildText("div.specs div span.efficiency")
+			model.FastCharge = h.ChildText("div.specs div span.fastcharge_speed_print")
+			model.Price = h.ChildText("div.pricing div.price_buy span")
 
 			// Appending
 			data = append(data, model)
