@@ -15,6 +15,7 @@ import (
 var (
 	cars         = make([]EV, 0)
 	publications = make([]Publication, 0)
+	recipes = make([]Recipes,0)
 )
 
 type WebScraper interface {
