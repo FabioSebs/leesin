@@ -1,20 +1,20 @@
 package scraper
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/FabioSebs/leesin/config"
 	"github.com/FabioSebs/leesin/logger"
 	"github.com/gocolly/colly"
+	"github.com/tealeg/xlsx"
 )
 
 var (
 	cars         = make([]EV, 0)
-	publications = make([]Publication, 0)
+	publications = make([]PublicationProject, 0)
 )
 
 type WebScraper interface {
@@ -44,15 +44,33 @@ func NewWebScraper() WebScraper {
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 	g.Collector.OnHTML("div.facetwp-template ", func(element *colly.HTMLElement) {
 		element.ForEach("div.article_content", func(_ int, h *colly.HTMLElement) {
-			pub := Publication{
+			pub := PublicationProject{
 				Title:  h.ChildText("h3"),
-				Source: h.ChildAttr("h3 a", "href"), // Corrected line
+				Format: h.ChildText("div.article_content div.tax_term"),
 				Year:   h.ChildText("p.post_meta"),
+				Link:   h.ChildAttr("h3 a", "href"),
 			}
-			h.ForEach("div.authors", func(_ int, e *colly.HTMLElement) {
-				pub.Author = append(pub.Author, e.ChildText("a"))
+
+			h.ForEach("div.authors", func(i int, e *colly.HTMLElement) {
+				switch i {
+				case 0:
+					pub.Author1 = e.ChildText("a")
+				case 1:
+					pub.Author2 = e.ChildText("a")
+				case 2:
+					pub.Author3 = e.ChildText("a")
+				case 3:
+					pub.Author4 = e.ChildText("a")
+				case 4:
+					pub.Author5 = e.ChildText("a")
+				case 5:
+					pub.Author6 = e.ChildText("a")
+				}
 			})
-			publications = append(publications, pub)
+
+			if strings.Contains(strings.ToLower(pub.Title), "battery") || strings.Contains(strings.ToLower(pub.Title), "cost") {
+				publications = append(publications, pub)
+			}
 		})
 	})
 
@@ -100,25 +118,67 @@ func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]
 	start := time.Now()
 
 	//Visiting URLS
-	for i := 1; i < 7; i++ {
-		if err := collector.Visit(fmt.Sprintf("https://theicct.org/insight-analysis/publications/?_icct_authors=253&_paged=%d&_sort=date_desc", i)); err != nil {
+	for i := 1; i < 11; i++ {
+		if err := collector.Visit(fmt.Sprintf("https://theicct.org/insight-analysis/publications/?_year=2024-02-01%%2C2024-10-14&_paged=%d", i)); err != nil {
 			g.Logger.WriteError(err.Error())
 		}
-		writeJSON(publications, "publications")
+		writeExcel(publications)
 	}
 
 	return cars, time.Since(start)
 }
 
-func writeJSON(data []Publication, fname string) {
-	cardata, err := json.MarshalIndent(data, "", " ")
+// func writeJSON(data []Publication, fname string) {
+// 	cardata, err := json.MarshalIndent(data, "", " ")
+// 	if err != nil {
+// 		log.Println("Unable to create json file")
+// 		return
+// 	}
+
+// 	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), cardata, 0644); err != nil {
+// 		log.Println("unable to write to json file")
+// 	}
+// 	cars = cars[:0]
+// }
+
+func writeExcel(data []PublicationProject) {
+	file := xlsx.NewFile()
+	sheet, err := file.AddSheet("Projects")
 	if err != nil {
-		log.Println("Unable to create json file")
-		return
+		log.Fatalf("Failed to create sheet : %v", err)
 	}
 
-	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), cardata, 0644); err != nil {
-		log.Println("unable to write to json file")
+	header := sheet.AddRow()
+	headerData := []string{
+		"Year", "Sector", "Vehicle Type", "Region", "Metric", "Format", "Title",
+		"Author 1", "Author 2", "Author 3", "Author 4", "Author 5", "Author 6", "Link",
 	}
-	cars = cars[:0]
+
+	for _, h := range headerData {
+		cell := header.AddCell()
+		cell.Value = h
+	}
+
+	for _, project := range data {
+		row := sheet.AddRow()
+		row.AddCell().Value = project.Year
+		row.AddCell().Value = project.Sector
+		row.AddCell().Value = project.VehicleType
+		row.AddCell().Value = project.Region
+		row.AddCell().Value = project.Metric
+		row.AddCell().Value = project.Format
+		row.AddCell().Value = project.Title
+		row.AddCell().Value = project.Author1
+		row.AddCell().Value = project.Author2
+		row.AddCell().Value = project.Author3
+		row.AddCell().Value = project.Author4
+		row.AddCell().Value = project.Author5
+		row.AddCell().Value = project.Author6
+		row.AddCell().Value = project.Link
+	}
+
+	err = file.Save("projects.xlsx")
+	if err != nil {
+		log.Fatalf("Failed to save file: %v", err)
+	}
 }
