@@ -68,7 +68,11 @@ func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
 				}
 			})
 
-			if strings.Contains(strings.ToLower(pub.Title), "battery") || strings.Contains(strings.ToLower(pub.Title), "cost") {
+			if strings.Contains(strings.ToLower(pub.Title), "battery") ||
+				strings.Contains(strings.ToLower(pub.Title), "cost") ||
+				strings.Contains(strings.ToLower(pub.Title), "econ") ||
+				strings.Contains(strings.ToLower(pub.Title), "perform") ||
+				strings.Contains(strings.ToLower(pub.Title), "econ") {
 				publications = append(publications, pub)
 			}
 		})

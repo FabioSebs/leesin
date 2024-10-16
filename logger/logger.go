@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -52,15 +53,27 @@ func (z *ZeroLogger) WriteError(msg string) {
 }
 
 func InitiateFileLogger() (zerolog.Logger, *os.File) {
-	// opening log files
+	// Ensure the directory exists
+	logDir := "apilogs"
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		// Create the directory if it doesn't exist
+		err := os.MkdirAll(logDir, 0755)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to create log directory: %v", err))
+		}
+	}
+
+	// Open (or create) the log file
 	file, err := os.OpenFile(
-		"apilogs/myapp.log",
+		"apilogs/myapp.log", // Ensure the correct path
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		0664,
 	)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Failed to open log file: %v", err))
 	}
+
+	// Create and return the logger
 	return zerolog.New(file).With().Timestamp().Caller().Int("pid", os.Getpid()).Logger(), file
 }
 
