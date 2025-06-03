@@ -1,13 +1,6 @@
 package scraper
 
-type EV struct {
+type GoogleMapsData struct {
 	Name  string
 	Price string
-}
-
-type Publication struct {
-	Author []string
-	Year   string
-	Title  string
-	Source string
 }

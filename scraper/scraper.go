@@ -13,14 +13,12 @@ import (
 )
 
 var (
-	cars         = make([]EV, 0)
-	publications = make([]Publication, 0)
+	GoogleData = make([]GoogleMapsData, 0)
 )
 
 type WebScraper interface {
 	CollectorSetup() *colly.Collector
-	// GetReviewsConcurrently(*colly.Collector) ([]EV, time.Duration)
-	GetReviewsSynchronously(*colly.Collector) ([]EV, time.Duration)
+	GetData(*colly.Collector, string) ([]GoogleMapsData, time.Duration)
 }
 
 type GoCollyProgram struct {
@@ -42,83 +40,57 @@ func NewWebScraper() WebScraper {
 }
 
 func (g *GoCollyProgram) CollectorSetup() *colly.Collector {
-	g.Collector.OnHTML("div.facetwp-template ", func(element *colly.HTMLElement) {
-		element.ForEach("div.article_content", func(_ int, h *colly.HTMLElement) {
-			pub := Publication{
-				Title:  h.ChildText("h3"),
-				Source: h.ChildAttr("h3 a", "href"), // Corrected line
-				Year:   h.ChildText("p.post_meta"),
-			}
-			h.ForEach("div.authors", func(_ int, e *colly.HTMLElement) {
-				pub.Author = append(pub.Author, e.ChildText("a"))
+	g.Collector.OnHTML("div.XltNde.tTVLSc", func(element *colly.HTMLElement) {
+		// Target the "sub parent"
+		element.ForEach("div.m6QErb.DxyBCb", func(_ int, sub *colly.HTMLElement) {
+
+			// Handle normal children
+			sub.ForEach("div.TFQHme", func(i int, h *colly.HTMLElement) {
+				// Do your scraping here for TFQHme children
+				fmt.Println("TFQHme child:", h.Text)
 			})
-			publications = append(publications, pub)
+
+			// Handle the odd first child
+			sub.ForEach("div.Nv2PK.THOPZb.CpccDe", func(i int, h *colly.HTMLElement) {
+				fmt.Println("Odd child:", h.Text)
+			})
 		})
 	})
 
-	// Request Feedback
+	// Request logging
 	g.Collector.OnRequest(func(r *colly.Request) {
 		g.Logger.WriteTrace(fmt.Sprintf("visiting url: %s", r.URL.String()))
 	})
 
-	// Error Feedback
+	// Error handling
 	g.Collector.OnError(func(_ *colly.Response, err error) {
 		g.Logger.WriteError(fmt.Sprintf("error: %s", err.Error()))
 	})
+
 	return g.Collector
 }
 
-// func (g *GoCollyProgram) GetReviewsConcurrently(collector *colly.Collector) ([]EV, time.Duration) {
-// 	//empty slice
-// 	defer emptyReviews(&cars)
-// 	start := time.Now()
-
-// 	//Visiting URLS
-// 	jobNo, err := strconv.Atoi(g.Config.MaxPage)
-// 	if err != nil {
-// 		g.Logger.WriteError(err.Error())
-// 	}
-
-// 	var wg sync.WaitGroup
-// 	wg.Add(jobNo)
-// 	for i := 1; i <= jobNo; i++ {
-// 		page := strconv.Itoa(i)
-// 		go func(page string) {
-// 			defer wg.Done()
-// 			url := fmt.Sprintf(g.Config.FullDomain+"?page=%s&stars=1", page)
-// 			if err := collector.Visit(url); err != nil {
-// 				g.Logger.WriteError(err.Error())
-// 			}
-// 		}(page)
-// 	}
-// 	wg.Wait()
-// 	// writeJSON(reviews)
-// 	return cars, time.Since(start)
-// }
-
-func (g *GoCollyProgram) GetReviewsSynchronously(collector *colly.Collector) ([]EV, time.Duration) {
+func (g *GoCollyProgram) GetData(collector *colly.Collector, query string) ([]GoogleMapsData, time.Duration) {
 	start := time.Now()
 
-	//Visiting URLS
-	for i := 1; i < 7; i++ {
-		if err := collector.Visit(fmt.Sprintf("https://theicct.org/insight-analysis/publications/?_icct_authors=253&_paged=%d&_sort=date_desc", i)); err != nil {
-			g.Logger.WriteError(err.Error())
-		}
-		writeJSON(publications, "publications")
+	if err := collector.Visit(fmt.Sprintf(g.Config.URL, query)); err != nil {
+		g.Logger.WriteError(err.Error())
 	}
 
-	return cars, time.Since(start)
+	writeJSON(GoogleData, "googlemaps")
+
+	return GoogleData, time.Since(start)
 }
 
-func writeJSON(data []Publication, fname string) {
-	cardata, err := json.MarshalIndent(data, "", " ")
+func writeJSON(data []GoogleMapsData, fname string) {
+	mapsdata, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println("Unable to create json file")
 		return
 	}
 
-	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), cardata, 0644); err != nil {
+	if err = ioutil.WriteFile(fmt.Sprintf("%s.json", fname), mapsdata, 0644); err != nil {
 		log.Println("unable to write to json file")
 	}
-	cars = cars[:0]
+	GoogleData = GoogleData[:0]
 }
